@@ -1,10 +1,10 @@
 "use client";
 import React, { useEffect, useRef, useState } from 'react';
 
-interface PayPalLoaderProps {
-  totalAmount: number;
-  cart: Product[];
-  currency?: string;
+declare global {
+  interface Window {
+    paypal: any;
+  }
 }
 
 interface Product {
@@ -15,6 +15,12 @@ interface Product {
   features: string[];
 }
 
+interface PayPalLoaderProps {
+  totalAmount: number;
+  cart: Product[];
+  currency?: string;
+}
+
 const PayPalLoader: React.FC<PayPalLoaderProps> = ({ 
   totalAmount,
   cart,
@@ -22,10 +28,11 @@ const PayPalLoader: React.FC<PayPalLoaderProps> = ({
 }) => {
   const paypalRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Helper om de prijs van string naar number te converteren
   const parsePrice = (priceString: string): number => {
-    return parseFloat(priceString.replace(/[^0-9.,]/g, '').replace(',', '.'));
+    const price = parseFloat(priceString.replace(/[^0-9.,]/g, '').replace(',', '.'));
+    return isNaN(price) ? 0 : price;
   };
 
   useEffect(() => {
@@ -44,10 +51,8 @@ const PayPalLoader: React.FC<PayPalLoaderProps> = ({
       }
     };
 
-    if (typeof window !== 'undefined' && window.paypal === undefined) {
+    if (typeof window !== 'undefined' && !window.paypal) {
       loadScript();
-    } else {
-      setIsLoaded(true);
     }
 
     return () => {
@@ -66,7 +71,7 @@ const PayPalLoader: React.FC<PayPalLoaderProps> = ({
           shape: 'rect',
           label: 'paypal'
         },
-        createOrder: (data, actions) => {
+        createOrder: (data: any, actions: any) => {
           return actions.order.create({
             purchase_units: [{
               amount: {
@@ -91,8 +96,8 @@ const PayPalLoader: React.FC<PayPalLoaderProps> = ({
             }]
           });
         },
-
-        onApprove: async (data, actions) => {
+        onApprove: async (data: any, actions: any) => {
+          setLoading(true);
           try {
             const details = await actions.order?.capture();
             if (details?.status === 'COMPLETED') {
@@ -101,20 +106,24 @@ const PayPalLoader: React.FC<PayPalLoaderProps> = ({
             }
           } catch (err) {
             console.error('Payment error:', err);
+            alert('Betaling mislukt, probeer opnieuw');
+          } finally {
+            setLoading(false);
           }
         },
-        onError: (err) => {
+        onError: (err: any) => {
           console.error("PayPal fout:", err);
-          alert('Er is een fout opgetreden tijdens het betalen.');
+          alert('Fout tijdens betalen: ' + err.message);
         }
       }).render(paypalRef.current);
     }
   }, [isLoaded, totalAmount, currency, cart]);
 
   return (
-    <div>
+    <div className="paypal-container">
+      {loading && <div className="payment-overlay">Bezig met betalen...</div>}
       <div ref={paypalRef} aria-live="polite" />
-      {!isLoaded && <p>Bezig met laden van betalingsopties...</p>}
+      {!isLoaded && <p>Bezig met laden...</p>}
     </div>
   );
 };
