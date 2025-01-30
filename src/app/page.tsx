@@ -16,19 +16,21 @@ export default function Page() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const storedCart = localStorage.getItem('cart');
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
+    if (typeof window !== "undefined") {
+      setMounted(true);
+      const storedCart = localStorage.getItem('cart');
+      if (storedCart) {
+        setCart(JSON.parse(storedCart));
+      }
     }
   }, []);
-
+  
   useEffect(() => {
-    if (mounted) {
+    if (mounted && typeof window !== "undefined") {
       localStorage.setItem('cart', JSON.stringify(cart));
     }
   }, [cart, mounted]);
-
+  
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
       const updatedCart = addToCart(prevCart, product);

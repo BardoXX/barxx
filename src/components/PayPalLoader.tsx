@@ -1,49 +1,122 @@
-"use client"
-import React, { useEffect } from 'react';
+"use client";
+import React, { useEffect, useRef, useState } from 'react';
 
 interface PayPalLoaderProps {
   totalAmount: number;
-  cart: any[];
+  cart: Product[];
+  currency?: string;
 }
 
-const PayPalLoader: React.FC<PayPalLoaderProps> = ({ totalAmount, cart }) => {
+interface Product {
+  id: string;
+  title: string;
+  price: string;
+  quantity: number;
+  features: string[];
+}
+
+const PayPalLoader: React.FC<PayPalLoaderProps> = ({ 
+  totalAmount,
+  cart,
+  currency = 'EUR'
+}) => {
+  const paypalRef = useRef<HTMLDivElement>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Helper om de prijs van string naar number te converteren
+  const parsePrice = (priceString: string): number => {
+    return parseFloat(priceString.replace(/[^0-9.,]/g, '').replace(',', '.'));
+  };
+
   useEffect(() => {
-    // Zorg ervoor dat de PayPal SDK alleen geladen wordt nadat de component is gemonteerd
-    const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=AbP_hMZuXEpefFBMuzH6PPQ3hhB25YTX3wfhtL1-kEhYVUrX-vI8cv9MfbmUzrI5pCXYr2rJKjRuGCk0&components=buttons`;
-    script.async = true;
-    script.onload = () => {
-      // Zorg ervoor dat PayPal component alleen wordt geactiveerd wanneer de SDK geladen is
-      if (window.paypal) {
-        window.paypal.Buttons({
-          createOrder: (data, actions) => {
-            return actions.order.create({
-              purchase_units: [{
-                amount: {
-                  value: totalAmount.toFixed(2),
-                },
-                description: 'Barxx Hosting - Pakket aankopen',
-              }],
-            });
-          },
-          onApprove: (data, actions) => {
-            return actions.order.capture().then((details) => {
-              alert('Betaling geslaagd: ' + details.payer.name.given_name);
-            });
-          },
-        }).render('#paypal-button-container');
+    const loadScript = () => {
+      const existingScript = document.querySelector('script[src*="paypal.com/sdk/js"]');
+      
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&components=buttons&currency=${currency}`;
+        script.async = true;
+        script.onload = () => setIsLoaded(true);
+        script.onerror = () => console.error('PayPal script failed to load');
+        document.body.appendChild(script);
+      } else {
+        setIsLoaded(true);
       }
     };
 
-    document.body.appendChild(script);
+    if (typeof window !== 'undefined' && window.paypal === undefined) {
+      loadScript();
+    } else {
+      setIsLoaded(true);
+    }
 
     return () => {
-      // Opruimen van de PayPal script om memory leaks te voorkomen
-      document.body.removeChild(script);
+      document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(el => el.remove());
     };
-  }, [totalAmount, cart]);
+  }, [currency]);
 
-  return <div id="paypal-button-container"></div>;
+  useEffect(() => {
+    if (isLoaded && window.paypal && paypalRef.current) {
+      paypalRef.current.innerHTML = '';
+      
+      window.paypal.Buttons({
+        style: {
+          layout: 'vertical',
+          color: 'gold',
+          shape: 'rect',
+          label: 'paypal'
+        },
+        createOrder: (data, actions) => {
+          return actions.order.create({
+            purchase_units: [{
+              amount: {
+                value: totalAmount.toFixed(2),
+                currency_code: currency,
+                breakdown: {
+                  item_total: {
+                    value: totalAmount.toFixed(2),
+                    currency_code: currency
+                  }
+                }
+              },
+              items: cart.map(item => ({
+                name: item.title,
+                quantity: item.quantity.toString(),
+                unit_amount: {
+                  value: parsePrice(item.price).toFixed(2),
+                  currency_code: currency
+                }
+              })),
+              description: `Aankoop van ${cart.length} product(en) bij Barxx Hosting`
+            }]
+          });
+        },
+
+        onApprove: async (data, actions) => {
+          try {
+            const details = await actions.order?.capture();
+            if (details?.status === 'COMPLETED') {
+              localStorage.removeItem('cart');
+              window.location.href = `/bedankt?transactionId=${details.id}`;
+            }
+          } catch (err) {
+            console.error('Payment error:', err);
+          }
+        },
+        onError: (err) => {
+          console.error("PayPal fout:", err);
+          alert('Er is een fout opgetreden tijdens het betalen.');
+        }
+      }).render(paypalRef.current);
+    }
+  }, [isLoaded, totalAmount, currency, cart]);
+
+  return (
+    <div>
+      <div ref={paypalRef} aria-live="polite" />
+      {!isLoaded && <p>Bezig met laden van betalingsopties...</p>}
+    </div>
+  );
 };
 
 export default PayPalLoader;

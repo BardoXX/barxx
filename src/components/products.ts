@@ -1,37 +1,41 @@
 // products.ts
 
-export interface Product {
+  export interface Product {
+    id: string; 
     title: string;
     price: string;
-    priceNum: number;
     features: string[];
-    quantity?: number;
-  }
+    quantity?: number; 
+  } 
   
   export const products: Product[] = [
     {
-      title: 'Starter Package',
-      price: '€2/month',
-      priceNum: 2,
-      features: ['Feature 1', 'Feature 2'],
+      id: "basic-hosting",
+      title: "Basis Pakket",
+      price: "€4,99",
+      quantity: "1", 
+      features: ["5GB Opslag", "1 Website", "10GB Bandbreedte"]
     },
     {
-      title: 'Pro Package',
-      price: '€4/month',
-      priceNum: 4,
-      features: ['Feature 1', 'Feature 2'],
+      id: "pro-hosting",
+      title: "Pro Pakket",
+      price: "€9,99",
+      quantity: "1",
+      features: ["5GB Opslag", "1 Website", "10GB Bandbreedte"]
     },
     {
-      title: 'Elite Package',
-      price: '€6/month',
-      priceNum: 6,
-      features: ['Feature 1', 'Feature 2'],
+      id: "ulta-hosting",
+      title: "Ultra Pakket",
+      price: "€19,99",
+      quantity: "1",
+      features: ["5GB Opslag", "1 Website", "10GB Bandbreedte"]
     },
     {
-      title: 'Premium Package',
-      price: '€8/month',
-      priceNum: 8,
-      features: ['Feature 1', 'Feature 2'],
+      id: "supreme-hosting",
+      title: "Supreme Pakket",
+      price: "€29,99",
+      quantity: "1",
+      features: ["5GB Opslag", "1 Website", "10GB Bandbreedte"]
     },
   ];
   
